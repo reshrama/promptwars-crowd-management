@@ -1,0 +1,10 @@
+.gcloudignore
+.git
+.gitignore
+node_modules/
+dist/
+.DS_Store
+.env
+# Ignore local development artifacts
+coverage/
+*.log
