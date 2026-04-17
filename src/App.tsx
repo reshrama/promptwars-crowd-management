@@ -11,22 +11,32 @@ import { getAIInsights, AIInsights } from './logic/aiService';
 export default function App() {
     const [view, setView] = useState<'manager' | 'attendee'>('manager');
     const [phase, setPhase] = useState<EventPhase>('PRE_GAME');
+
+    // Initial optimistic state for instant load
     const [aiInsights, setAiInsights] = useState<AIInsights>({
-        managerSuggestion: "Analyzing stadium patterns...",
-        attendeeGuidance: "Welcome! Check the live map for the fastest routes."
+        managerSuggestion: "Monitoring gate arrival rates... AI analyzing North Gate optimization.",
+        attendeeGuidance: "Entry gates are active. AI is finding the shortest queue for you."
     });
 
-    // Sync data with phase
+    // Sync data with phase (simulation data is instant)
     const crowdData = useMemo(() => getCrowdData(phase), [phase]);
+
+    // Optimistic insights for instant feedback while API loads
+    const getOptimisticInsights = (selectedPhase: EventPhase): AIInsights => {
+        const fallbacks: Record<EventPhase, AIInsights> = {
+            PRE_GAME: { managerSuggestion: "Monitoring gate arrival rates... AI analyzing North Gate optimization.", attendeeGuidance: "Entry gates are active. AI is finding the shortest queue for you." },
+            LIVE: { managerSuggestion: "Live match in progress. AI analyzing seating density trends.", attendeeGuidance: "Enjoy the game! Smart concessions guide updating..." },
+            HALFTIME: { managerSuggestion: "Halftime peak detected. AI calculating concourse relief routes.", attendeeGuidance: "Fastest concourse routes being calculated for you now." },
+            POST_GAME: { managerSuggestion: "Exit flow starting. AI analyzing egress bottleneck relief.", attendeeGuidance: "Exit routes updating. AI is finding your fastest path home." }
+        };
+        return fallbacks[selectedPhase];
+    };
 
     // Fetch AI insights when data changes
     useEffect(() => {
         const fetchInsights = async () => {
-            // Immediately set a loading state to prevent "stale" data from the previous phase
-            setAiInsights({
-                managerSuggestion: "Synchronizing real-time analytics for the new phase...",
-                attendeeGuidance: "Updating your smart guide based on live conditions..."
-            });
+            // Immediately set optimistic insights to prevent "stale" flashes
+            setAiInsights(getOptimisticInsights(phase));
 
             const insights = await getAIInsights(crowdData, phase);
             setAiInsights(insights);
@@ -35,14 +45,14 @@ export default function App() {
     }, [crowdData, phase]);
 
     return (
-        <div className="min-h-screen bg-[#0f0f1a] text-slate-100 font-sans selection:bg-indigo-500/30">
+        <div className="h-screen w-full overflow-hidden bg-[#0f0f1a] text-slate-100 font-sans selection:bg-indigo-500/30 flex flex-col">
             {/* Accessibility: Skip Link */}
             <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg">
                 Skip to main content
             </a>
 
             {/* Header / Navigation */}
-            <header className="fixed top-0 w-full z-40 px-6 py-4 flex items-center justify-between glass border-b border-indigo-500/10">
+            <header className="flex-none z-40 px-6 py-4 flex items-center justify-between glass border-b border-indigo-500/10">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex-center shadow-lg shadow-indigo-500/20">
                         <Activity className="w-6 h-6 text-white" />
@@ -84,193 +94,204 @@ export default function App() {
                 </div>
             </header>
 
-            <main id="main-content" className="pt-24 pb-12 px-6 max-w-7xl mx-auto focus:outline-none" tabIndex={-1}>
-                {view === 'manager' ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        {/* Stats Sidebar */}
-                        <aside className="lg:col-span-3 space-y-4" aria-label="Operational Stats">
-                            <div className="glass p-5 rounded-2xl border border-white/5 hover:border-indigo-500/20 transition-colors">
-                                <label htmlFor="phase-select" className="block text-[10px] uppercase tracking-[0.15em] font-black text-indigo-400 mb-3">
-                                    Current Event Phase
-                                </label>
-                                <select
-                                    id="phase-select"
-                                    value={phase}
-                                    onChange={(e) => setPhase(e.target.value as EventPhase)}
-                                    className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
-                                >
-                                    <option value="PRE_GAME">Pre-Game Arrivals</option>
-                                    <option value="LIVE">Live Match</option>
-                                    <option value="HALFTIME">Halftime Peak</option>
-                                    <option value="POST_GAME">Post-Game Exit</option>
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-4">
-                                <StatCard icon={Users} label="Total Attendance" value={crowdData.stats.totalAttendance.toLocaleString()} trend="+2k/min" />
-                                <StatCard icon={Zap} label="Avg Flow Rate" value="850/m" trend="Peak" />
-                                <StatCard icon={ShieldCheck} label="Ops Efficacy" value="92%" trend="Stable" />
-                            </div>
-
-                            <section className="glass p-5 rounded-3xl border border-white/5" aria-labelledby="bottlenecks-title">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="p-2 rounded-lg bg-rose-500/20 text-rose-500">
-                                        <AlertTriangle className="w-5 h-5" />
+            <main id="main-content" className="flex-1 overflow-auto pt-8 pb-12 px-6 max-w-7xl mx-auto focus:outline-none w-full" tabIndex={-1}>
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={view}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.25 }}
+                        className="w-full h-full"
+                    >
+                        {view === 'manager' ? (
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+                                {/* Stats Sidebar */}
+                                <aside className="lg:col-span-3 space-y-4" aria-label="Operational Stats">
+                                    <div className="glass p-5 rounded-2xl border border-white/5 hover:border-indigo-500/20 transition-colors">
+                                        <label htmlFor="phase-select" className="block text-[10px] uppercase tracking-[0.15em] font-black text-indigo-400 mb-3">
+                                            Current Event Phase
+                                        </label>
+                                        <select
+                                            id="phase-select"
+                                            value={phase}
+                                            onChange={(e) => setPhase(e.target.value as EventPhase)}
+                                            className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
+                                        >
+                                            <option value="PRE_GAME">Pre-Game Arrivals</option>
+                                            <option value="LIVE">Live Match</option>
+                                            <option value="HALFTIME">Halftime Peak</option>
+                                            <option value="POST_GAME">Post-Game Exit</option>
+                                        </select>
                                     </div>
-                                    <h2 id="bottlenecks-title" className="text-sm font-black uppercase tracking-wider">Critical Bottlenecks</h2>
-                                </div>
-                                <div className="space-y-4">
-                                    {crowdData.bottlenecks.map((b, i) => (
-                                        <div key={i} className="group p-4 rounded-2xl bg-slate-900/40 border border-white/5 hover:bg-rose-500/5 hover:border-rose-500/20 transition-all">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <span className="font-bold text-slate-200">{b.area}</span>
-                                                <span className="text-[10px] font-black bg-rose-500 text-white px-2 py-0.5 rounded-full">{b.waitMinutes}m Wait</span>
+
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <StatCard icon={Users} label="Total Attendance" value={crowdData.stats.totalAttendance.toLocaleString()} trend="+2k/min" />
+                                        <StatCard icon={Zap} label="Avg Flow Rate" value="850/m" trend="Peak" />
+                                        <StatCard icon={ShieldCheck} label="Ops Efficacy" value="92%" trend="Stable" />
+                                    </div>
+
+                                    <section className="glass p-5 rounded-3xl border border-white/5" aria-labelledby="bottlenecks-title">
+                                        <div className="flex items-center gap-3 mb-6">
+                                            <div className="p-2 rounded-lg bg-rose-500/20 text-rose-500">
+                                                <AlertTriangle className="w-5 h-5" />
                                             </div>
-                                            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden" role="progressbar" aria-valuenow={b.waitMinutes} aria-valuemin={0} aria-valuemax={60} aria-label={`${b.area} wait time`}>
-                                                <motion.div
-                                                    initial={{ width: 0 }}
-                                                    animate={{ width: `${Math.min(100, b.waitMinutes * 3.3)}%` }}
-                                                    className="h-full bg-gradient-to-r from-rose-500 to-orange-500"
-                                                />
+                                            <h2 id="bottlenecks-title" className="text-sm font-black uppercase tracking-wider">Critical Bottlenecks</h2>
+                                        </div>
+                                        <div className="space-y-4">
+                                            {crowdData.bottlenecks.map((b, i) => (
+                                                <div key={i} className="group p-4 rounded-2xl bg-slate-900/40 border border-white/5 hover:bg-rose-500/5 hover:border-rose-500/20 transition-all">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <span className="font-bold text-slate-200">{b.area}</span>
+                                                        <span className="text-[10px] font-black bg-rose-500 text-white px-2 py-0.5 rounded-full">{b.waitMinutes}m Wait</span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden" role="progressbar" aria-valuenow={b.waitMinutes} aria-valuemin={0} aria-valuemax={60} aria-label={`${b.area} wait time`}>
+                                                        <motion.div
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${Math.min(100, b.waitMinutes * 3.3)}%` }}
+                                                            className="h-full bg-gradient-to-r from-rose-500 to-orange-500"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                </aside>
+
+                                {/* Main Heatmap */}
+                                <section className="lg:col-span-6 space-y-6" aria-label="Venue Heatmap">
+                                    <div className="glass p-8 rounded-[2.5rem] border border-white/10 relative overflow-hidden group">
+                                        <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 to-transparent pointer-events-none" />
+                                        <div className="flex justify-between items-end mb-8">
+                                            <div>
+                                                <h2 className="text-2xl font-black tracking-tight mb-1">Live Stadium Heatmap</h2>
+                                                <p className="text-xs text-slate-400 font-medium">Monitoring real-time sector load & egress clusters</p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button aria-label="Share Dashboard" className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer border border-white/5">
+                                                    <Share2 className="w-4 h-4" />
+                                                </button>
+                                                <button aria-label="Download Report" className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer border border-white/5">
+                                                    <Download className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            </section>
-                        </aside>
+                                        <VenueMap densities={crowdData.sectorDensities} bottlenecks={crowdData.bottlenecks} />
+                                    </div>
 
-                        {/* Main Heatmap */}
-                        <section className="lg:col-span-6 space-y-6" aria-label="Venue Heatmap">
-                            <div className="glass p-8 rounded-[2.5rem] border border-white/10 relative overflow-hidden group">
-                                <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 to-transparent pointer-events-none" />
-                                <div className="flex justify-between items-end mb-8">
-                                    <div>
-                                        <h2 className="text-2xl font-black tracking-tight mb-1">Live Stadium Heatmap</h2>
-                                        <p className="text-xs text-slate-400 font-medium">Monitoring real-time sector load & egress clusters</p>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button aria-label="Share Dashboard" className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer border border-white/5">
-                                            <Share2 className="w-4 h-4" />
+                                    <section className="glass p-8 rounded-[2rem] bg-indigo-600/10 border border-indigo-500/30 overflow-hidden relative" aria-labelledby="ai-ops-title">
+                                        <div className="absolute top-0 right-0 p-12 opacity-10 blur-3xl bg-indigo-500 rounded-full" />
+                                        <div className="flex items-center gap-4 mb-6 relative">
+                                            <div className="p-3 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/40">
+                                                <Sparkles className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h2 id="ai-ops-title" className="text-lg font-black tracking-tight text-white">AI Operational Analyst</h2>
+                                                <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Powered by Gemini 1.5 Flash</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-slate-200 text-sm leading-relaxed font-semibold bg-slate-900/60 p-6 rounded-2xl border border-white/10 shadow-inner overflow-hidden min-h-[100px]">
+                                            <AnimatePresence mode="wait">
+                                                <motion.div
+                                                    key={aiInsights.managerSuggestion}
+                                                    initial={{ opacity: 0, y: 5 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -5 }}
+                                                    transition={{ duration: 0.2 }}
+                                                >
+                                                    {aiInsights.managerSuggestion}
+                                                </motion.div>
+                                            </AnimatePresence>
+                                        </div>
+                                    </section>
+                                </section>
+
+                                {/* Control Panel */}
+                                <aside className="lg:col-span-3 space-y-6" aria-label="Actions & Coordination">
+                                    <section className="glass p-6 rounded-3xl border border-white/5" aria-labelledby="broadcast-title">
+                                        <h2 id="broadcast-title" className="text-xs font-black uppercase tracking-[0.2em] text-indigo-400 mb-6 flex items-center gap-2">
+                                            <Bell className="w-4 h-4" /> Coordination
+                                        </h2>
+                                        <button className="w-full group bg-slate-900 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl text-left transition-all mb-4 focus:ring-2 focus:ring-indigo-500 outline-none">
+                                            <h3 className="font-bold text-slate-200 mb-1 group-hover:text-indigo-400 transition-colors">Broadcast Alert</h3>
+                                            <p className="text-xs text-slate-500">Push real-time directions to all fans in Critical sectors.</p>
                                         </button>
-                                        <button aria-label="Download Report" className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer border border-white/5">
-                                            <Download className="w-4 h-4" />
+                                        <button className="w-full group bg-slate-900 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl text-left transition-all focus:ring-2 focus:ring-indigo-500 outline-none">
+                                            <h3 className="font-bold text-slate-200 mb-1 group-hover:text-amber-400 transition-colors">Dispatch Support</h3>
+                                            <p className="text-xs text-slate-500">Deploy additional stewards to identified bottlenecks.</p>
                                         </button>
+                                    </section>
+
+                                    <div className="glass p-6 rounded-3xl border border-indigo-500/10 bg-gradient-to-br from-slate-900 to-indigo-950/20" aria-label="Engagement Stats">
+                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-4">Fan Engagement</h3>
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="text-slate-400">Response Rate</span>
+                                                <span className="font-black text-emerald-400">88%</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="text-slate-400">Sentiment Score</span>
+                                                <span className="font-black text-indigo-400">4.8/5</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                                <VenueMap densities={crowdData.sectorDensities} bottlenecks={crowdData.bottlenecks} />
+                                </aside>
                             </div>
-
-                            <section className="glass p-8 rounded-[2rem] bg-indigo-600/10 border border-indigo-500/30 overflow-hidden relative" aria-labelledby="ai-ops-title">
-                                <div className="absolute top-0 right-0 p-12 opacity-10 blur-3xl bg-indigo-500 rounded-full" />
-                                <div className="flex items-center gap-4 mb-6 relative">
-                                    <div className="p-3 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/40">
-                                        <Sparkles className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h2 id="ai-ops-title" className="text-lg font-black tracking-tight text-white">AI Operational Analyst</h2>
-                                        <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Powered by Gemini 1.5 Flash</p>
+                        ) : (
+                            /* Attendee View */
+                            <section className="max-w-md mx-auto space-y-6" aria-label="Attendee Companion Experience">
+                                <div className="text-center mb-8">
+                                    <h2 className="text-3xl font-black tracking-tight mb-2">Good Evening!</h2>
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full border border-emerald-500/20">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Exclusive Access</span>
                                     </div>
                                 </div>
-                                <div className="text-slate-200 text-sm leading-relaxed font-semibold bg-slate-900/60 p-6 rounded-2xl border border-white/10 shadow-inner overflow-hidden min-h-[100px]">
-                                    <AnimatePresence mode="wait">
-                                        <motion.div
-                                            key={aiInsights.managerSuggestion}
-                                            initial={{ opacity: 0, y: 5 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -5 }}
-                                            transition={{ duration: 0.2 }}
-                                        >
-                                            {aiInsights.managerSuggestion}
-                                        </motion.div>
-                                    </AnimatePresence>
-                                </div>
-                            </section>
-                        </section>
 
-                        {/* Control Panel */}
-                        <aside className="lg:col-span-3 space-y-6" aria-label="Actions & Coordination">
-                            <section className="glass p-6 rounded-3xl border border-white/5" aria-labelledby="broadcast-title">
-                                <h2 id="broadcast-title" className="text-xs font-black uppercase tracking-[0.2em] text-indigo-400 mb-6 flex items-center gap-2">
-                                    <Bell className="w-4 h-4" /> Coordination
-                                </h2>
-                                <button className="w-full group bg-slate-900 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl text-left transition-all mb-4 focus:ring-2 focus:ring-indigo-500 outline-none">
-                                    <h3 className="font-bold text-slate-200 mb-1 group-hover:text-indigo-400 transition-colors">Broadcast Alert</h3>
-                                    <p className="text-xs text-slate-500">Push real-time directions to all fans in Critical sectors.</p>
-                                </button>
-                                <button className="w-full group bg-slate-900 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl text-left transition-all focus:ring-2 focus:ring-indigo-500 outline-none">
-                                    <h3 className="font-bold text-slate-200 mb-1 group-hover:text-amber-400 transition-colors">Dispatch Support</h3>
-                                    <p className="text-xs text-slate-500">Deploy additional stewards to identified bottlenecks.</p>
-                                </button>
-                            </section>
+                                <section className="glass p-6 rounded-[2rem] border border-indigo-500/30 bg-indigo-600/5 relative overflow-hidden" aria-labelledby="fan-ai-title">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-lg">
+                                            <Sparkles className="w-5 h-5" />
+                                        </div>
+                                        <h3 id="fan-ai-title" className="text-sm font-black uppercase tracking-widest text-white">AI Smart Guide</h3>
+                                    </div>
+                                    <div className="text-slate-100 text-sm font-bold leading-relaxed bg-slate-900/40 p-5 rounded-2xl border border-white/5 mb-4 shadow-inner min-h-[80px]">
+                                        <AnimatePresence mode="wait">
+                                            <motion.div
+                                                key={aiInsights.attendeeGuidance}
+                                                initial={{ opacity: 0, scale: 0.98 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.98 }}
+                                                transition={{ duration: 0.2 }}
+                                            >
+                                                {aiInsights.attendeeGuidance}
+                                            </motion.div>
+                                        </AnimatePresence>
+                                    </div>
+                                    <div className="text-[10px] font-black text-indigo-400/60 flex items-center gap-2">
+                                        <MapPin className="w-3 h-3" /> Real-time Venue Logic
+                                    </div>
+                                </section>
 
-                            <div className="glass p-6 rounded-3xl border border-indigo-500/10 bg-gradient-to-br from-slate-900 to-indigo-950/20" aria-label="Engagement Stats">
-                                <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-4">Fan Engagement</h3>
                                 <div className="space-y-4">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-slate-400">Response Rate</span>
-                                        <span className="font-black text-emerald-400">88%</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-slate-400">Sentiment Score</span>
-                                        <span className="font-black text-indigo-400">4.8/5</span>
+                                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 px-2">Your personalized guide</h3>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <AttendeeCard icon={Users} label="Restrooms" wait="3m wait" location="Section 104" />
+                                        <AttendeeCard icon={Coffee} label="Food & Drinks" wait="12m wait" location="Concourse A" />
+                                        <AttendeeCard icon={MapPin} label="Next Event" wait="Live" location="Main Field" />
                                     </div>
                                 </div>
-                            </div>
-                        </aside>
-                    </div>
-                ) : (
-                    /* Attendee View */
-                    <section className="max-w-md mx-auto space-y-6" aria-label="Attendee Companion Experience">
-                        <div className="text-center mb-8">
-                            <h2 className="text-3xl font-black tracking-tight mb-2">Good Evening!</h2>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full border border-emerald-500/20">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Exclusive Access</span>
-                            </div>
-                        </div>
 
-                        <section className="glass p-6 rounded-[2rem] border border-indigo-500/30 bg-indigo-600/5 relative overflow-hidden" aria-labelledby="fan-ai-title">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-lg">
-                                    <Sparkles className="w-5 h-5" />
-                                </div>
-                                <h3 id="fan-ai-title" className="text-sm font-black uppercase tracking-widest text-white">AI Smart Guide</h3>
-                            </div>
-                            <div className="text-slate-100 text-sm font-bold leading-relaxed bg-slate-900/40 p-5 rounded-2xl border border-white/5 mb-4 shadow-inner min-h-[80px]">
-                                <AnimatePresence mode="wait">
-                                    <motion.div
-                                        key={aiInsights.attendeeGuidance}
-                                        initial={{ opacity: 0, scale: 0.98 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.98 }}
-                                        transition={{ duration: 0.2 }}
-                                    >
-                                        {aiInsights.attendeeGuidance}
-                                    </motion.div>
-                                </AnimatePresence>
-                            </div>
-                            <div className="text-[10px] font-black text-indigo-400/60 flex items-center gap-2">
-                                <MapPin className="w-3 h-3" /> Real-time Venue Logic
-                            </div>
-                        </section>
-
-                        <div className="space-y-4">
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 px-2">Your personalized guide</h3>
-                            <div className="grid grid-cols-1 gap-4">
-                                <AttendeeCard icon={Users} label="Restrooms" wait="3m wait" location="Section 104" />
-                                <AttendeeCard icon={Coffee} label="Food & Drinks" wait="12m wait" location="Concourse A" />
-                                <AttendeeCard icon={MapPin} label="Next Event" wait="Live" location="Main Field" />
-                            </div>
-                        </div>
-
-                        <section className="glass p-6 rounded-[2rem] border border-white/5" aria-labelledby="your-map-title">
-                            <h3 id="your-map-title" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 text-center">Your Live Map</h3>
-                            <div className="aspect-square bg-slate-900/50 rounded-2xl border border-white/5 flex-center p-4 shadow-inner">
-                                <VenueMap densities={crowdData.sectorDensities} bottlenecks={crowdData.bottlenecks} />
-                            </div>
-                        </section>
-                    </section>
-                )}
+                                <section className="glass p-6 rounded-[2rem] border border-white/5" aria-labelledby="your-map-title">
+                                    <h3 id="your-map-title" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 text-center">Your Live Map</h3>
+                                    <div className="aspect-square bg-slate-900/50 rounded-2xl border border-white/5 flex-center p-4 shadow-inner">
+                                        <VenueMap densities={crowdData.sectorDensities} bottlenecks={crowdData.bottlenecks} />
+                                    </div>
+                                </section>
+                            </section>
+                        )}
+                    </motion.div>
+                </AnimatePresence>
             </main>
 
             {/* Notifications FAB */}
