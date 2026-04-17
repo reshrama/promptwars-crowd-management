@@ -7,10 +7,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import VenueMap from './components/VenueMap';
 import { getCrowdData, EventPhase } from './logic/crowdSimulator';
 import { getAIInsights, AIInsights } from './logic/aiService';
+import { pushBroadcastAlert, subscribeToAlerts } from './logic/firebase';
 
 export default function App() {
     const [view, setView] = useState<'manager' | 'attendee'>('manager');
     const [phase, setPhase] = useState<EventPhase>('PRE_GAME');
+    const [liveAlerts, setLiveAlerts] = useState<any[]>([]);
 
     // Initial optimistic state for instant load
     const [aiInsights, setAiInsights] = useState<AIInsights>({
@@ -19,7 +21,11 @@ export default function App() {
     });
 
     // Sync data with phase (simulation data is instant)
-    const crowdData = useMemo(() => getCrowdData(phase), [phase]);
+    const crowdData = useMemo(() => {
+        const data = getCrowdData(phase);
+        import('./logic/pwaService').then(m => m.cacheCrowdData(data));
+        return data;
+    }, [phase]);
 
     // Optimistic insights for instant feedback while API loads
     const getOptimisticInsights = (selectedPhase: EventPhase): AIInsights => {
@@ -43,6 +49,18 @@ export default function App() {
         };
         fetchInsights();
     }, [crowdData, phase]);
+
+    // Handle Firebase Alert Subscription
+    useEffect(() => {
+        const unsubscribe = subscribeToAlerts((alerts) => {
+            setLiveAlerts(alerts);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const handleBroadcast = async (message: string, area: string) => {
+        await pushBroadcastAlert(message, area);
+    };
 
     return (
         <div className="h-screen w-full overflow-hidden bg-[#0f0f1a] text-slate-100 font-sans selection:bg-indigo-500/30 flex flex-col">
@@ -212,27 +230,32 @@ export default function App() {
                                         <h2 id="broadcast-title" className="text-xs font-black uppercase tracking-[0.2em] text-indigo-400 mb-6 flex items-center gap-2">
                                             <Bell className="w-4 h-4" /> Coordination
                                         </h2>
-                                        <button className="w-full group bg-slate-900 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl text-left transition-all mb-4 focus:ring-2 focus:ring-indigo-500 outline-none">
+                                        <button
+                                            onClick={() => handleBroadcast(`Attention: Redirecting traffic due to ${phase} peak.`, 'Stadium Wide')}
+                                            className="w-full group bg-slate-900 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl text-left transition-all mb-4 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        >
                                             <h3 className="font-bold text-slate-200 mb-1 group-hover:text-indigo-400 transition-colors">Broadcast Alert</h3>
                                             <p className="text-xs text-slate-500">Push real-time directions to all fans in Critical sectors.</p>
                                         </button>
-                                        <button className="w-full group bg-slate-900 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl text-left transition-all focus:ring-2 focus:ring-indigo-500 outline-none">
+                                        <button
+                                            onClick={() => handleBroadcast('Dispatching additional support staff to North Gate.', 'North Gate')}
+                                            className="w-full group bg-slate-900 border border-white/10 hover:border-indigo-500/40 p-5 rounded-2xl text-left transition-all focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        >
                                             <h3 className="font-bold text-slate-200 mb-1 group-hover:text-amber-400 transition-colors">Dispatch Support</h3>
                                             <p className="text-xs text-slate-500">Deploy additional stewards to identified bottlenecks.</p>
                                         </button>
                                     </section>
 
-                                    <div className="glass p-6 rounded-3xl border border-indigo-500/10 bg-gradient-to-br from-slate-900 to-indigo-950/20" aria-label="Engagement Stats">
-                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-4">Fan Engagement</h3>
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between text-xs">
-                                                <span className="text-slate-400">Response Rate</span>
-                                                <span className="font-black text-emerald-400">88%</span>
-                                            </div>
-                                            <div className="flex items-center justify-between text-xs">
-                                                <span className="text-slate-400">Sentiment Score</span>
-                                                <span className="font-black text-indigo-400">4.8/5</span>
-                                            </div>
+                                    <div className="glass p-6 rounded-3xl border border-indigo-500/10 bg-gradient-to-br from-slate-900 to-indigo-950/20" aria-label="Live Feeds">
+                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-4">Live Alerts (Firebase)</h3>
+                                        <div className="space-y-3">
+                                            {liveAlerts.length > 0 ? liveAlerts.map((alert) => (
+                                                <div key={alert.id} className="text-[10px] p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-slate-300">
+                                                    <span className="font-bold text-indigo-400">[{alert.area}]</span> {alert.message}
+                                                </div>
+                                            )) : (
+                                                <div className="text-[10px] text-slate-500 italic">No active broadcasts.</div>
+                                            )}
                                         </div>
                                     </div>
                                 </aside>
