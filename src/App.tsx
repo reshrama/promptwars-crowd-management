@@ -41,9 +41,7 @@ export default function App() {
     // Fetch AI insights when data changes
     useEffect(() => {
         const fetchInsights = async () => {
-            // Immediately set optimistic insights to prevent "stale" flashes
-            setAiInsights(getOptimisticInsights(phase));
-
+            // Optimistic reset is now handled synchronously in event handlers
             const insights = await getAIInsights(crowdData, phase);
             setAiInsights(insights);
         };
@@ -112,15 +110,15 @@ export default function App() {
                 </div>
             </header>
 
-            <main id="main-content" className="flex-1 overflow-auto pt-8 pb-12 px-6 max-w-7xl mx-auto focus:outline-none w-full" tabIndex={-1}>
+            <main id="main-content" className="flex-1 overflow-y-auto px-6 py-8 w-full max-w-7xl mx-auto focus:outline-none scrollbar-hide" tabIndex={-1}>
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={view}
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={false} // Prevent initial layout jump
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.25 }}
-                        className="w-full h-full"
+                        transition={{ duration: 0.2 }}
+                        className="w-full min-h-full"
                     >
                         {view === 'manager' ? (
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
@@ -133,7 +131,12 @@ export default function App() {
                                         <select
                                             id="phase-select"
                                             value={phase}
-                                            onChange={(e) => setPhase(e.target.value as EventPhase)}
+                                            onChange={(e) => {
+                                                const newPhase = e.target.value as EventPhase;
+                                                setPhase(newPhase);
+                                                // Sync reset: Instantaneous update before the effect even kicks in
+                                                setAiInsights(getOptimisticInsights(newPhase));
+                                            }}
                                             className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
                                         >
                                             <option value="PRE_GAME">Pre-Game Arrivals</option>
