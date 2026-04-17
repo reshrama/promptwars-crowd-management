@@ -22,6 +22,12 @@ export default function App() {
     // Fetch AI insights when data changes
     useEffect(() => {
         const fetchInsights = async () => {
+            // Immediately set a loading state to prevent "stale" data from the previous phase
+            setAiInsights({
+                managerSuggestion: "Synchronizing real-time analytics for the new phase...",
+                attendeeGuidance: "Updating your smart guide based on live conditions..."
+            });
+
             const insights = await getAIInsights(crowdData, phase);
             setAiInsights(insights);
         };
@@ -165,8 +171,18 @@ export default function App() {
                                         <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Powered by Gemini 1.5 Flash</p>
                                     </div>
                                 </div>
-                                <div className="text-slate-200 text-sm leading-relaxed font-semibold bg-slate-900/60 p-6 rounded-2xl border border-white/10 shadow-inner">
-                                    {aiInsights.managerSuggestion}
+                                <div className="text-slate-200 text-sm leading-relaxed font-semibold bg-slate-900/60 p-6 rounded-2xl border border-white/10 shadow-inner overflow-hidden min-h-[100px]">
+                                    <AnimatePresence mode="wait">
+                                        <motion.div
+                                            key={aiInsights.managerSuggestion}
+                                            initial={{ opacity: 0, y: 5 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -5 }}
+                                            transition={{ duration: 0.2 }}
+                                        >
+                                            {aiInsights.managerSuggestion}
+                                        </motion.div>
+                                    </AnimatePresence>
                                 </div>
                             </section>
                         </section>
@@ -220,8 +236,18 @@ export default function App() {
                                 </div>
                                 <h3 id="fan-ai-title" className="text-sm font-black uppercase tracking-widest text-white">AI Smart Guide</h3>
                             </div>
-                            <div className="text-slate-100 text-sm font-bold leading-relaxed bg-slate-900/40 p-5 rounded-2xl border border-white/5 mb-4 shadow-inner">
-                                {aiInsights.attendeeGuidance}
+                            <div className="text-slate-100 text-sm font-bold leading-relaxed bg-slate-900/40 p-5 rounded-2xl border border-white/5 mb-4 shadow-inner min-h-[80px]">
+                                <AnimatePresence mode="wait">
+                                    <motion.div
+                                        key={aiInsights.attendeeGuidance}
+                                        initial={{ opacity: 0, scale: 0.98 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.98 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        {aiInsights.attendeeGuidance}
+                                    </motion.div>
+                                </AnimatePresence>
                             </div>
                             <div className="text-[10px] font-black text-indigo-400/60 flex items-center gap-2">
                                 <MapPin className="w-3 h-3" /> Real-time Venue Logic
