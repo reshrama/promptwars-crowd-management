@@ -6,18 +6,20 @@ interface ZoneProps {
     d: string;
     density: number; // 0-100
     label: string;
+    isBottleneck: boolean;
 }
 
-const Zone = ({ id, d, density, label }: ZoneProps) => {
+const Zone = ({ id, d, density, label, isBottleneck }: ZoneProps) => {
     // Map density to color (emerald -> amber -> rose)
     const getColor = (val: number) => {
+        if (isBottleneck) return '#f43f5e'; // Always rose if bottleneck
         if (val < 30) return '#10b981'; // Green
         if (val < 70) return '#f59e0b'; // Amber
         return '#f43f5e'; // Rose
     };
 
     return (
-        <g className="group cursor-pointer" role="listitem" aria-label={`${label} density: ${density}%`}>
+        <g className="group cursor-pointer" role="listitem" aria-label={`${label}: ${isBottleneck ? "Critical Bottleneck" : `Density ${density}%`}`}>
             <motion.path
                 d={d}
                 initial={false}
@@ -38,13 +40,15 @@ const Zone = ({ id, d, density, label }: ZoneProps) => {
                 transform={id === 'north' ? 'translate(0, -60)' : id === 'south' ? 'translate(0, 60)' : id === 'east' ? 'translate(80, 0)' : 'translate(-80, 0)'}
                 aria-hidden="true"
             >
-                {label}: {density}%
+                {label}: {density}% {isBottleneck && "⚠"}
             </text>
         </g>
     );
 };
 
-export default function VenueMap({ densities }: { densities: { [key: string]: number } }) {
+export default function VenueMap({ densities, bottlenecks = [] }: { densities: { [key: string]: number }, bottlenecks?: any[] }) {
+    const checkBottleneck = (id: string) => bottlenecks.some(b => b.area.toLowerCase().includes(id));
+
     return (
         <div className="w-full h-full relative flex-center p-4">
             <svg viewBox="0 0 400 300" className="w-full h-full max-h-[400px]">
@@ -55,10 +59,10 @@ export default function VenueMap({ densities }: { densities: { [key: string]: nu
                 <rect x="120" y="100" width="160" height="100" rx="10" fill="#22c55e20" stroke="#22c55e40" strokeWidth="2" />
 
                 {/* Sectors */}
-                <Zone id="north" d="M 120 50 Q 200 20 280 50 L 280 90 L 120 90 Z" density={densities.north || 20} label="North Stand" />
-                <Zone id="south" d="M 120 250 Q 200 280 280 250 L 280 210 L 120 210 Z" density={densities.south || 20} label="South Stand" />
-                <Zone id="east" d="M 290 100 Q 330 150 290 200 L 350 200 Q 390 150 350 100 Z" density={densities.east || 20} label="East Wing" />
-                <Zone id="west" d="M 110 100 Q 70 150 110 200 L 50 200 Q 10 150 50 100 Z" density={densities.west || 20} label="West Wing" />
+                <Zone id="north" d="M 120 50 Q 200 20 280 50 L 280 90 L 120 90 Z" density={densities.north || 20} label="North Stand" isBottleneck={checkBottleneck('north')} />
+                <Zone id="south" d="M 120 250 Q 200 280 280 250 L 280 210 L 120 210 Z" density={densities.south || 20} label="South Stand" isBottleneck={checkBottleneck('south')} />
+                <Zone id="east" d="M 290 100 Q 330 150 290 200 L 350 200 Q 390 150 350 100 Z" density={densities.east || 20} label="East Wing" isBottleneck={checkBottleneck('east')} />
+                <Zone id="west" d="M 110 100 Q 70 150 110 200 L 50 200 Q 10 150 50 100 Z" density={densities.west || 20} label="West Wing" isBottleneck={checkBottleneck('west')} />
 
                 {/* Gates */}
                 <circle cx="200" cy="40" r="5" fill={densities.gates > 70 ? '#f43f5e' : '#10b981'} className="pulse-indicator" />

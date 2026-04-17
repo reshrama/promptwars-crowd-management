@@ -52,8 +52,6 @@ export const getAIInsights = async (crowdData: CrowdData, phase: EventPhase): Pr
         const response = await result.response;
         const text = response.text();
 
-        console.log("Raw AI Response:", text);
-
         // Basic JSON extraction (Gemini might wrap it in markdown)
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
